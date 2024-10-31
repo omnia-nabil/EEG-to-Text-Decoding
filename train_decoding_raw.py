@@ -276,8 +276,8 @@ if __name__ == '__main__':
     if use_random_init:
         save_name = 'randinit_' + save_name
 
-    output_checkpoint_name_best = save_path + f'/best/{save_name}.pt'
-    output_checkpoint_name_last = save_path + f'/last/{save_name}.pt'
+    output_checkpoint_name_best = f'/kaggle/working/best/{save_name}.pt'
+    output_checkpoint_name_last = f'/kaggle/working/last/{save_name}.pt'
 
     subject_choice = args['subjects']
     print(f'![Debug]using {subject_choice}')
