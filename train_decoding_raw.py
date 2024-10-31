@@ -42,13 +42,7 @@ val_writer = SummaryWriter(os.path.join(LOG_DIR, "train_full"))
 dev_writer = SummaryWriter(os.path.join(LOG_DIR, "dev_full"))
 
 
-CHECKPOINT_DIR_BEST = '/kaggle/working/checkpoints/decoding_raw/best'
-CHECKPOINT_DIR_LAST = '/kaggle/working/checkpoints/decoding_raw/last'
-CONFIG_DIR = '/kaggle/working/config/decoding_raw'
-LOG_DIR = "runs_h"
-os.makedirs(CHECKPOINT_DIR_BEST, exist_ok=True)
-os.makedirs(CHECKPOINT_DIR_LAST, exist_ok=True)
-os.makedirs(CONFIG_DIR, exist_ok=True)
+
 
 SUBJECTS = ['ZAB', 'ZDM', 'ZDN', 'ZGW', 'ZJM', 'ZJN', 'ZJS', 'ZKB', 'ZKH', 'ZKW', 'ZMG', 'ZPH', 
             'YSD', 'YFS', 'YMD', 'YAC', 'YFR', 'YHS', 'YLS', 'YDG', 'YRH', 'YRK', 'YMS', 'YIS', 'YTL', 'YSL', 'YRP', 'YAG', 'YDR', 'YAK']
@@ -249,6 +243,13 @@ def show_require_grad_layers(model):
 
 
 if __name__ == '__main__':
+    CHECKPOINT_DIR_BEST = '/kaggle/working/checkpoints/decoding_raw/best'
+    CHECKPOINT_DIR_LAST = '/kaggle/working/checkpoints/decoding_raw/last'
+    CONFIG_DIR = '/kaggle/working/config/decoding_raw'
+    LOG_DIR = "runs_h"
+    os.makedirs(CHECKPOINT_DIR_BEST, exist_ok=True)
+    os.makedirs(CHECKPOINT_DIR_LAST, exist_ok=True)
+    os.makedirs(CONFIG_DIR, exist_ok=True)
     args = config.get_config('train_decoding')
 
     ''' config param'''
@@ -317,10 +318,12 @@ if __name__ == '__main__':
         dataset_path_task1 = '/kaggle/input/dataset/ZuCo/task1-SR/pickle/task1-SR-dataset_wRaw.pickle'
         with open(dataset_path_task1, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
+    '''
     if 'task2' in task_name:
         dataset_path_task2 = '/kaggle/input/dataset2/task2-NR-dataset_wRaw.pickle'
         with open(dataset_path_task2, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
+    '''
     print()
 
     if model_name in ['BrainTranslator', 'BrainTranslatorNaive']:
