@@ -3,8 +3,8 @@ python /kaggle/working/EEG-to-Text-Decoding/train_decoding_raw.py --model_name B
     --two_step \
     --pretrained \
     --not_load_step1_checkpoint \
-    --num_epoch_step1 3 \
-    --num_epoch_step2 3 \
+    --num_epoch_step1 1 \
+    --num_epoch_step2 1 \
     -lr1 0.00005 \
     -lr2 0.00005 \
     -b 50\
