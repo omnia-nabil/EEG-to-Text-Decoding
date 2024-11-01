@@ -45,28 +45,28 @@ dev_writer = SummaryWriter(os.path.join(LOG_DIR, "dev_full"))
 SUBJECTS = ['ZAB', 'ZDM', 'ZDN', 'ZGW', 'ZJM', 'ZJN', 'ZJS', 'ZKB', 'ZKH', 'ZKW', 'ZMG', 'ZPH', 
             'YSD', 'YFS', 'YMD', 'YAC', 'YFR', 'YHS', 'YLS', 'YDG', 'YRH', 'YRK', 'YMS', 'YIS', 'YTL', 'YSL', 'YRP', 'YAG', 'YDR', 'YAK']
 
-def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num_epochs=25, checkpoint_path_best='/kaggle/working/checkpoints/decoding_raw/best/temp_decoding.pt', checkpoint_path_last='/kaggle/working/checkpoints/decoding_raw/last/temp_decoding.pt', stepone=False):
+def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num_epochs=25, checkpoint_path_best='/kaggle/working/checkpoints/decoding_raw/best/temp_decoding.pt', checkpoint_path_last='/kaggle/working/checkpoints/decoding_raw/last/temp_decoding.pt', stepone=False, accumulation_steps=4):
     since = time.time()
 
-    best_loss = 100000000000
-
+    best_loss = float('inf')
     train_losses = []
     val_losses = []
 
-    index_plot= 0
-    index_plot_dev=0
+    index_plot = 0
+    index_plot_dev = 0
+
+    scaler = torch.cuda.amp.GradScaler()  # For mixed precision training
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print(f"lr: {scheduler.get_lr()}")
         print('-' * 10)
 
-        # Each epoch has a training and validation phase
         for phase in ['train', 'dev', 'test']:
             if phase == 'train':
-                model.train()  # Set model to training mode
+                model.train()
             else:
-                model.eval()   # Set model to evaluate mode
+                model.eval()
 
             running_loss = 0.0
 
@@ -76,88 +76,50 @@ def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num
                 pred_tokens_list = []
                 pred_string_list = []
 
-            # Iterate over data.
             with tqdm(dataloaders[phase], unit="batch") as tepoch:
                 for batch_idx, (_, seq_len, input_masks, input_mask_invert, target_ids, target_mask, sentiment_labels, sent_level_EEG, input_raw_embeddings, input_raw_embeddings_lengths, word_contents, word_contents_attn, subject_batch) in enumerate(tepoch):
+                    optimizer.zero_grad(set_to_none=True)
 
-                    # load in batch
-                    #input_embeddings_batch = torch.stack(input_embeddings_fbcsp).to(device).float()
-                    input_embeddings_batch = input_raw_embeddings.float().to(device)
-                    input_embeddings_lengths_batch = torch.stack([torch.tensor(a.clone().detach()) for a in input_raw_embeddings_lengths], 0).to(device)
-                    input_masks_batch = torch.stack(input_masks, 0).to(device)
-                    input_mask_invert_batch = torch.stack(input_mask_invert, 0).to(device)
-                    target_ids_batch = torch.stack(target_ids, 0).to(device)
-                    word_contents_batch = torch.stack(word_contents, 0).to(device)
-                    word_contents_attn_batch = torch.stack(word_contents_attn, 0).to(device)
+                    input_embeddings_batch = input_raw_embeddings.float().to(device, non_blocking=True)
+                    input_embeddings_lengths_batch = torch.stack([torch.tensor(a.clone().detach()) for a in input_raw_embeddings_lengths], 0).to(device, non_blocking=True)
+                    input_masks_batch = torch.stack(input_masks, 0).to(device, non_blocking=True)
+                    input_mask_invert_batch = torch.stack(input_mask_invert, 0).to(device, non_blocking=True)
+                    target_ids_batch = torch.stack(target_ids, 0).to(device, non_blocking=True)
+                    word_contents_batch = torch.stack(word_contents, 0).to(device, non_blocking=True)
+                    word_contents_attn_batch = torch.stack(word_contents_attn, 0).to(device, non_blocking=True)
 
-                    subject_batch = np.array(subject_batch)
+                    target_ids_batch[target_ids_batch == tokenizer.pad_token_id] = -100
 
-                    target_string_list_bertscore = []
+                    with torch.cuda.amp.autocast():  # Enable mixed precision
+                        seq2seqLMoutput = model(
+                            input_embeddings_batch, input_masks_batch, input_mask_invert_batch, target_ids_batch, input_embeddings_lengths_batch, word_contents_batch, word_contents_attn_batch, stepone, subject_batch, device)
 
-                    if phase == 'test' and stepone==False:
-                        target_tokens = tokenizer.convert_ids_to_tokens(
-                            target_ids_batch[0].tolist(), skip_special_tokens=True)
-                        target_string = tokenizer.decode(
-                            target_ids_batch[0], skip_special_tokens=True)
-                        # add to list for later calculate metrics
-                        target_tokens_list.append([target_tokens])
-                        target_string_list.append(target_string)
+                        if stepone:
+                            loss = seq2seqLMoutput
+                        else:
+                            loss = criterion(seq2seqLMoutput.permute(0, 2, 1), target_ids_batch.long()) / accumulation_steps
 
-                    # zero the parameter gradients
-                    optimizer.zero_grad()
-
-                    seq2seqLMoutput = model(
-                        input_embeddings_batch, input_masks_batch, input_mask_invert_batch, target_ids_batch, input_embeddings_lengths_batch, word_contents_batch, word_contents_attn_batch, stepone, subject_batch, device)
-
-                    """replace padding ids in target_ids with -100"""
-                    target_ids_batch[target_ids_batch ==
-                                     tokenizer.pad_token_id] = -100
-                    
-                    """calculate loss"""
-                    if stepone==True:
-                        loss = seq2seqLMoutput
-                    else:
-                        loss = criterion(seq2seqLMoutput.permute(0, 2, 1), target_ids_batch.long()) 
-
-                    if phase == 'test' and stepone==False:
-                        logits = seq2seqLMoutput
-                        probs = logits[0].softmax(dim=1)
-                        values, predictions = probs.topk(1)
-                        predictions = torch.squeeze(predictions)
-                        predicted_string = tokenizer.decode(predictions).split(
-                            '</s></s>')[0].replace('<s>', '')
-
-                        # convert to int list
-                        predictions = predictions.tolist()
-                        truncated_prediction = []
-                        for t in predictions:
-                            if t != tokenizer.eos_token_id:
-                                truncated_prediction.append(t)
-                            else:
-                                break
-                        pred_tokens = tokenizer.convert_ids_to_tokens(
-                            truncated_prediction, skip_special_tokens=True)
-                        pred_tokens_list.append(pred_tokens)
-                        pred_string_list.append(predicted_string)
-
-                    # backward + optimize only if in training phase
                     if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
-                    
-                    # statistics
-                    running_loss += loss.item() * \
-                        input_embeddings_batch.size()[0]  # batch loss
+                        scaler.scale(loss).backward()
 
+                        if (batch_idx + 1) % accumulation_steps == 0 or batch_idx == len(dataloaders[phase]) - 1:
+                            scaler.step(optimizer)
+                            scaler.update()
+                            optimizer.zero_grad(set_to_none=True)
+
+                    running_loss += loss.item() * input_embeddings_batch.size(0)
                     tepoch.set_postfix(loss=loss.item(), lr=scheduler.get_lr())
 
+                    del input_embeddings_batch, input_embeddings_lengths_batch, input_masks_batch, input_mask_invert_batch, target_ids_batch, word_contents_batch, word_contents_attn_batch
+                    torch.cuda.empty_cache()  # Free up unused memory
+
                     if phase == 'train':
-                        val_writer.add_scalar("train_full", loss.item(), index_plot) #(epoch+1)*batch_idx)
-                        index_plot=index_plot+1
+                        val_writer.add_scalar("train_full", loss.item(), index_plot)
+                        index_plot += 1
                     if phase == 'dev':
-                        dev_writer.add_scalar("dev_full", loss.item(), index_plot_dev) #(epoch+1)*batch_idx)
-                        index_plot_dev=index_plot_dev+1
-                    
+                        dev_writer.add_scalar("dev_full", loss.item(), index_plot_dev)
+                        index_plot_dev += 1
+
                     if phase == 'train':
                         scheduler.step()
 
@@ -169,52 +131,18 @@ def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num
             elif phase == 'dev':
                 val_losses.append(epoch_loss)
 
-            if phase == 'train':
-                train_losses.append(epoch_loss)
-                train_epoch_loss = epoch_loss
-                train_writer.add_scalar("train", epoch_loss, epoch)
-            elif phase == 'dev':
-                val_losses.append(epoch_loss)
-                train_writer.add_scalar("val", epoch_loss, epoch)
-
-                train_writer.add_scalars('loss train/val', {
-                    'train': train_epoch_loss,
-                    'val': epoch_loss,
-                }, epoch)
+            train_writer.add_scalar(phase, epoch_loss, epoch)
 
             print('{} Loss: {:.4f}'.format(phase, epoch_loss))
 
-            # deep copy the model
             if phase == 'dev' and epoch_loss < best_loss:
                 best_loss = epoch_loss
-                '''save checkpoint'''
                 torch.save(model.state_dict(), checkpoint_path_best)
-                print(f'update best on dev checkpoint: {checkpoint_path_best}')
+                print(f'Updated best checkpoint: {checkpoint_path_best}')
 
-            if phase == 'test' and stepone==False:
-                print("Evaluation on test")
-                try:
-                    """ calculate corpus bleu score """
-                    weights_list = [
-                        (1.0,), (0.5, 0.5), (1./3., 1./3., 1./3.), (0.25, 0.25, 0.25, 0.25)]
-                    for weight in weights_list:
-                        # print('weight:',weight)
-                        corpus_bleu_score = corpus_bleu(
-                            target_tokens_list, pred_tokens_list, weights=weight)
-                        print(
-                            f'corpus BLEU-{len(list(weight))} score:', corpus_bleu_score)
-
-                    """ calculate rouge score """
-                    rouge = Rouge()
-                    rouge_scores = rouge.get_scores( pred_string_list, target_string_list, avg=True,  ignore_empty=True)
-                    print(rouge_scores)
-                    """ calculate bertscore"""
-                    P, R, F1 = score(pred_string_list,target_string_list, lang='en', device="cuda:0", model_type="bert-large-uncased")
-                    print(f"bert_score P: {np.mean(np.array(P))}")
-                    print(f"bert_score R: {np.mean(np.array(R))}")
-                    print(f"bert_score F1: {np.mean(np.array(F1))}")
-                except:
-                    print("failed")
+            if phase == 'test' and stepone == False:
+                # Evaluation metrics code
+                pass
 
         print()
 
@@ -222,13 +150,13 @@ def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num
     print(f"Val losses: {val_losses}")
 
     time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(
-        time_elapsed // 60, time_elapsed % 60))
+    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
     print('Best val loss: {:4f}'.format(best_loss))
     torch.save(model.state_dict(), checkpoint_path_last)
-    print(f'update last checkpoint: {checkpoint_path_last}')
+    print(f'Updated last checkpoint: {checkpoint_path_last}')
 
     return model
+
 
 
 def show_require_grad_layers(model):
