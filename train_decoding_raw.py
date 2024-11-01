@@ -218,6 +218,7 @@ def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num
                     print("failed")
 
         print()
+    torch.cuda.empty_cache()
 
     print(f"Train losses: {train_losses}")
     print(f"Val losses: {val_losses}")
