@@ -45,7 +45,7 @@ dev_writer = SummaryWriter(os.path.join(LOG_DIR, "dev_full"))
 SUBJECTS = ['ZAB', 'ZDM', 'ZDN', 'ZGW', 'ZJM', 'ZJN', 'ZJS', 'ZKB', 'ZKH', 'ZKW', 'ZMG', 'ZPH', 
             'YSD', 'YFS', 'YMD', 'YAC', 'YFR', 'YHS', 'YLS', 'YDG', 'YRH', 'YRK', 'YMS', 'YIS', 'YTL', 'YSL', 'YRP', 'YAG', 'YDR', 'YAK']
 
-def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num_epochs=25, checkpoint_path_best='/kaggle/working/checkpoints/decoding_raw/best/temp_decoding.pt', checkpoint_path_last='/kaggle/working/checkpoints/decoding_raw/last/temp_decoding.pt', stepone=False, accumulation_steps=4):
+def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num_epochs=25, checkpoint_path_best='/kaggle/working/checkpoints/decoding_raw/best/temp_decoding.pt', checkpoint_path_last='/kaggle/working/checkpoints/decoding_raw/last/temp_decoding.pt', stepone=False, accumulation_steps=4, max_grad_norm=1.0):
     since = time.time()
 
     best_loss = float('inf')
@@ -99,8 +99,17 @@ def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num
                         else:
                             loss = criterion(seq2seqLMoutput.permute(0, 2, 1), target_ids_batch.long()) / accumulation_steps
 
+                    if torch.isnan(loss):
+                        print("NaN detected in loss, skipping backward pass.")
+                        continue
+
                     if phase == 'train':
                         scaler.scale(loss).backward()
+
+                        # Gradient clipping
+                        if max_grad_norm > 0:
+                            scaler.unscale_(optimizer)
+                            torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
 
                         if (batch_idx + 1) % accumulation_steps == 0 or batch_idx == len(dataloaders[phase]) - 1:
                             scaler.step(optimizer)
@@ -156,6 +165,7 @@ def train_model(dataloaders, device, model, criterion, optimizer, scheduler, num
     print(f'Updated last checkpoint: {checkpoint_path_last}')
 
     return model
+
 
 
 
