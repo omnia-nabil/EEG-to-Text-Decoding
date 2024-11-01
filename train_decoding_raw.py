@@ -14,9 +14,9 @@ from tqdm import tqdm
 from transformers import BartTokenizer, BartForConditionalGeneration, BertTokenizer, BertConfig, BertForSequenceClassification, RobertaTokenizer, RobertaForSequenceClassification
 from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
 import sys
-sys.path.insert(1, '/kaggle/input/data_raw/pytorch/default/1')
-sys.path.insert(1, '/kaggle/input/model_decoding_raw/pytorch/default/1')
-sys.path.insert(1, '/kaggle/input/config/pytorch/default/1')
+sys.path.insert(1, '/kaggle/working/EEG-to-Text-Decoding/data_raw.py')
+sys.path.insert(1, '/kaggle/working/EEG-to-Text-Decoding/model_decoding_raw.py')
+sys.path.insert(1, '/kaggle/working/EEG-to-Text-Decoding/config.py')
 for path in sys.path:
     print(path)
 
@@ -40,6 +40,7 @@ LOG_DIR = "runs_h"
 train_writer = SummaryWriter(os.path.join(LOG_DIR, "train"))
 val_writer = SummaryWriter(os.path.join(LOG_DIR, "train_full"))
 dev_writer = SummaryWriter(os.path.join(LOG_DIR, "dev_full"))
+
 
 
 SUBJECTS = ['ZAB', 'ZDM', 'ZDN', 'ZGW', 'ZJM', 'ZJN', 'ZJS', 'ZKB', 'ZKH', 'ZKW', 'ZMG', 'ZPH', 
@@ -240,7 +241,15 @@ def show_require_grad_layers(model):
             print(' ', name)
 
 
-if _name_ == '_main_':
+if __name__ == '__main__':
+    CHECKPOINT_DIR_BEST = '/kaggle/working/checkpoints/decoding_raw/best'
+    CHECKPOINT_DIR_LAST = '/kaggle/working/checkpoints/decoding_raw/last'
+    CONFIG_DIR = '/kaggle/working/config/decoding_raw'
+    LOG_DIR = "runs_h"
+    os.makedirs(CHECKPOINT_DIR_BEST, exist_ok=True)
+    os.makedirs(CHECKPOINT_DIR_LAST, exist_ok=True)
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+
     args = config.get_config('train_decoding')
 
     ''' config param'''
@@ -269,9 +278,9 @@ if _name_ == '_main_':
     print(f'[INFO]using use_random_init: {use_random_init}')
 
     if skip_step_one:
-        save_name = f'{task_name}finetune{model_name}skipstep1_b{batch_size}{num_epochs_step1}{num_epochs_step2}{step1_lr}{step2_lr}{dataset_setting}'
+        save_name = f'{task_name}_finetune_{model_name}_skipstep1_b{batch_size}_{num_epochs_step1}_{num_epochs_step2}_{step1_lr}_{step2_lr}_{dataset_setting}'
     else:
-        save_name = f'{task_name}finetune{model_name}2steptraining_b{batch_size}{num_epochs_step1}{num_epochs_step2}{step1_lr}{step2_lr}{dataset_setting}'
+        save_name = f'{task_name}_finetune_{model_name}_2steptraining_b{batch_size}_{num_epochs_step1}_{num_epochs_step2}_{step1_lr}_{step2_lr}_{dataset_setting}'
 
     if use_random_init:
         save_name = 'randinit_' + save_name
@@ -309,10 +318,7 @@ if _name_ == '_main_':
         dataset_path_task1 = '/kaggle/input/dataset/ZuCo/task1-SR/pickle/task1-SR-dataset_wRaw.pickle'
         with open(dataset_path_task1, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
-    if 'task2' in task_name:
-        dataset_path_task2 = '/kaggle/input/dataset2/task2-NR-dataset_wRaw.pickle'
-        with open(dataset_path_task2, 'rb') as handle:
-            whole_dataset_dicts.append(pickle.load(handle))
+
 
     print()
 
@@ -469,3 +475,4 @@ if _name_ == '_main_':
     val_writer.close()
     dev_writer.flush()
     dev_writer.close()
+
