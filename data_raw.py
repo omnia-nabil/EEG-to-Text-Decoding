@@ -310,7 +310,7 @@ if __name__ == '__main__':
         with open(dataset_path_task2, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
 
-        dataset_path_task2_v2 = '/dataset/ZuCo/task2-NR-2.0/pickle/task2-NR-2.0-dataset.pickle' 
+        dataset_path_task2_v2 = '/kaggle/input/dataset3/task2-NR-2.0-dataset_wRaw.pickle' 
         with open(dataset_path_task2_v2, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
 
