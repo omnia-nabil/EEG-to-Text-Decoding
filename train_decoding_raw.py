@@ -331,7 +331,8 @@ if __name__ == '__main__':
         with open(dataset_path_taskNRv2, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
     print()
-
+    with open(f'/kaggle/working/config/decoding_raw/{save_name}.json', 'w') as out_config:
+        json.dump(args, out_config, indent=4)
     if model_name in ['BrainTranslator', 'BrainTranslatorNaive']:
         tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
 
