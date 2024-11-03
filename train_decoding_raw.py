@@ -277,7 +277,10 @@ if __name__ == '__main__':
 
     print(f'[INFO]using model: {model_name}')
     print(f'[INFO]using use_random_init: {use_random_init}')
-
+    # Each training run can have different hyperparameters 
+    # (e.g., batch size, learning rates, number of epochs). The save_name string incorporates these values, making each checkpoint file unique.
+    # With save_name, you can look at the filename and immediately understand the context of the training it represents 
+    # (e.g., whether step 1 was skipped, what batch size and learning rates were used, etc.).
     if skip_step_one:
         save_name = f'{task_name}_finetune_{model_name}_skipstep1_b{batch_size}_{num_epochs_step1}_{num_epochs_step2}_{step1_lr}_{step2_lr}_{dataset_setting}'
     else:
@@ -286,8 +289,8 @@ if __name__ == '__main__':
     if use_random_init:
         save_name = 'randinit_' + save_name
 
-    output_checkpoint_name_best = f'/kaggle/working/best/{save_name}.pt'
-    output_checkpoint_name_last = f'/kaggle/working/last/{save_name}.pt'
+    output_checkpoint_name_best = f'/kaggle/working/checkpoints/decoding_raw/best/{save_name}.pt'
+    output_checkpoint_name_last = f'/kaggle/working/checkpoints/decoding_raw/last/{save_name}.pt'
 
     subject_choice = args['subjects']
     print(f'![Debug]using {subject_choice}')
@@ -323,7 +326,6 @@ if __name__ == '__main__':
         dataset_path_task2 = '/kaggle/input/dataset2/task2-NR-dataset_wRaw.pickle'
         with open(dataset_path_task2, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
-
     if 'taskNRv2' in task_name:
         dataset_path_taskNRv2 = '/kaggle/input/dataset3/task2-NR-2.0-dataset_wRaw.pickle'
         with open(dataset_path_taskNRv2, 'rb') as handle:
@@ -409,6 +411,7 @@ if __name__ == '__main__':
                     continue
                 else:
                     param.requires_grad = False
+            
 
     if skip_step_one:
         if load_step1_checkpoint:
@@ -417,6 +420,50 @@ if __name__ == '__main__':
             model.load_state_dict(torch.load(stepone_checkpoint))
         else:
             print('skip step one, start from scratch at step two')
+        
+
+        ##################################################################################
+
+        '''step two trainig'''
+        ######################################################
+
+        #model.load_state_dict(torch.load("./checkpoints/decoding_raw_104_h/last/task1_task2_taskNRv2_finetune_BrainTranslator_skipstep1_b4_25_100_5e-05_5e-05_unique_sent.pt"))
+        model.freeze_pretrained_brain()
+
+        ''' set up optimizer and scheduler'''
+        optimizer_step2 = optim.SGD(filter(
+                lambda p: p.requires_grad, model.parameters()), lr=step2_lr, momentum=0.9)
+
+        exp_lr_scheduler_step2 = lr_scheduler.CyclicLR(optimizer_step2, 
+                        base_lr = 0.0000005, # Initial learning rate which is the lower boundary in the cycle for each parameter group
+                        max_lr =  0.00005, # Upper learning rate boundaries in the cycle for each parameter group
+                        mode = "triangular2") #triangular2'''
+
+        ''' set up loss function '''
+        criterion = nn.CrossEntropyLoss()
+
+        print()
+        print('=== start Step2 training ... ===')
+        # print training layers
+        show_require_grad_layers(model)
+
+        model.to(device)
+
+        '''main loop'''
+        trained_model = train_model(dataloaders, device, model, criterion, optimizer_step2, exp_lr_scheduler_step2, num_epochs=num_epochs_step2,
+                                    checkpoint_path_best=output_checkpoint_name_best, checkpoint_path_last=output_checkpoint_name_last, stepone=False)
+
+        train_writer.flush()
+        train_writer.close()
+        val_writer.flush()
+        val_writer.close()
+        dev_writer.flush()
+        dev_writer.close()
+
+        #################################################################################
+
+
+
     else:
         model.to(device)
 
@@ -448,39 +495,5 @@ if __name__ == '__main__':
         dev_writer.close()        
     
     ######################################################
-    '''step two trainig'''
-    ######################################################
 
-    #model.load_state_dict(torch.load("./checkpoints/decoding_raw_104_h/last/task1_task2_taskNRv2_finetune_BrainTranslator_skipstep1_b4_25_100_5e-05_5e-05_unique_sent.pt"))
-    model.freeze_pretrained_brain()
-
-    ''' set up optimizer and scheduler'''
-    optimizer_step2 = optim.SGD(filter(
-            lambda p: p.requires_grad, model.parameters()), lr=step2_lr, momentum=0.9)
-
-    exp_lr_scheduler_step2 = lr_scheduler.CyclicLR(optimizer_step2, 
-                     base_lr = 0.0000005, # Initial learning rate which is the lower boundary in the cycle for each parameter group
-                     max_lr =  0.00005, # Upper learning rate boundaries in the cycle for each parameter group
-                     mode = "triangular2") #triangular2'''
-
-    ''' set up loss function '''
-    criterion = nn.CrossEntropyLoss()
-
-    print()
-    print('=== start Step2 training ... ===')
-    # print training layers
-    show_require_grad_layers(model)
-
-    model.to(device)
-
-    '''main loop'''
-    trained_model = train_model(dataloaders, device, model, criterion, optimizer_step2, exp_lr_scheduler_step2, num_epochs=num_epochs_step2,
-                                checkpoint_path_best=output_checkpoint_name_best, checkpoint_path_last=output_checkpoint_name_last, stepone=False)
-
-    train_writer.flush()
-    train_writer.close()
-    val_writer.flush()
-    val_writer.close()
-    dev_writer.flush()
-    dev_writer.close()
 
