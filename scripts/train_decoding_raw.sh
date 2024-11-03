@@ -8,5 +8,5 @@ python /kaggle/working/EEG-to-Text-Decoding/train_decoding_raw.py --model_name B
     -lr1 0.00005 \
     -lr2 0.00005 \
     -b 15\
-    -s ./checkpoints/decoding_raw \
+    -s /kaggle/working/checkpoints/decoding_raw \
     -cuda cuda:0
