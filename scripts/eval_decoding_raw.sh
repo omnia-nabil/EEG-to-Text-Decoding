@@ -1,5 +1,5 @@
 python3 eval_decoding_raw.py \
-    --checkpoint_path ./checkpoints/decoding_raw_104_h/last/task1_task2_taskNRv2_finetune_BrainTranslator_skipstep1_b4_25_25_5e-05_5e-05_unique_sent_best.pt \
-    --config_path ./config/decoding_raw/task1_task2_taskNRv2_finetune_BrainTranslator_skipstep1_b4_25_25_5e-05_5e-05_unique_sent.json \
+    --checkpoint_path /kaggle/input/train-eeg-t-text/checkpoints/decoding_raw/best/task1_task2_taskNRv2_finetune_BrainTranslator_skipstep1_b20_2_2_5e-05_5e-05_unique_sent.pt \
+    --config_path /kaggle/input/train-eeg-t-text/config/decoding_raw/task1_task2_taskNRv2_finetune_BrainTranslator_skipstep1_b20_2_2_5e-05_5e-05_unique_sent.json \
     -cuda cuda:0
 
