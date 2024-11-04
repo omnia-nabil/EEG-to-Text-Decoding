@@ -43,7 +43,7 @@ def chatgpt_refinement(corrupted_text):
     
     return output
 
-def eval_model(dataloaders, device, tokenizer, criterion, model, output_all_results_path = './results_raw/temp.txt' ):
+def eval_model(dataloaders, device, tokenizer, criterion, model, output_all_results_path = '/kaggle/working/results_raw/temp.txt' ):
     # modified from: https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
 
     gpt=False
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     task_name = training_config['task_name']    
     model_name = training_config['model_name']
 
-    output_all_results_path = f'./results_raw/{task_name}-{model_name}-all_decoding_results.txt'
+    output_all_results_path = f'/kaggle/working/results_raw/{task_name}-{model_name}-all_decoding_results.txt'
     ''' set random seeds '''
     seed_val = 312
     np.random.seed(seed_val)
@@ -242,19 +242,15 @@ if __name__ == '__main__':
     ''' set up dataloader '''
     whole_dataset_dicts = []
     if 'task1' in task_name:
-        dataset_path_task1 = './dataset/ZuCo/task1-SR/pickle/task1-SR-dataset_wRaw.pickle' 
+        dataset_path_task1 = '/kaggle/input/dataset/ZuCo/task1-SR/pickle/task1-SR-dataset_wRaw.pickle' 
         with open(dataset_path_task1, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
     if 'task2' in task_name:
-        dataset_path_task2 = './dataset/ZuCo/task2-NR/pickle/task2-NR-dataset_wRaw.pickle' 
+        dataset_path_task2 = '/kaggle/input/dataset2/task2-NR-dataset_wRaw.pickle' 
         with open(dataset_path_task2, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
-    if 'task3' in task_name:
-        dataset_path_task3 = './dataset/ZuCo/task3-TSR/pickle/task3-TSR-dataset_wRaw.pickle' 
-        with open(dataset_path_task3, 'rb') as handle:
-            whole_dataset_dicts.append(pickle.load(handle))
     if 'taskNRv2' in task_name:
-        dataset_path_taskNRv2 = './dataset/ZuCo/task2-NR-2.0/pickle/task2-NR-2.0-dataset_wRaw.pickle' 
+        dataset_path_taskNRv2 = '/kaggle/input/dataset3/task2-NR-2.0-dataset_wRaw.pickle' 
         with open(dataset_path_taskNRv2, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
     print()
