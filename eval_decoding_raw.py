@@ -22,14 +22,10 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 
 
-load_dotenv()
 
-# Now you can access your API key securely
-api_key = os.getenv("OPENAI_API_KEY")
-print("api key: ",api_key)
 # LLMs: Get predictions from ChatGPT
 def chatgpt_refinement(corrupted_text):
-    llm = ChatOpenAI(temperature=0.2, model_name="gpt-4", max_tokens=256, openai_api_key=secrets.OPENAI_API_KEY)
+    llm = ChatOpenAI(temperature=0.2, model_name="gpt-4", max_tokens=256, openai_api_key=OPENAI_API_KEY)
 
     messages = [
         SystemMessage(content="As a text reconstructor, your task is to restore corrupted sentences to their original form while making minimum changes. You should adjust the spaces and punctuation marks as necessary. Do not introduce any additional information. If you are unable to reconstruct the text, respond with [False]."),
