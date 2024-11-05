@@ -20,7 +20,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 from langchain_community.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
-os.environ["OPENAI_API_KEY"] = "" # GPT4 APIs key
+os.environ["OPENAI_API_KEY"] = "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" 
 
 
 # LLMs: Get predictions from ChatGPT
