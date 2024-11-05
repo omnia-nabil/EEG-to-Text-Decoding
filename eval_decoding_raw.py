@@ -20,12 +20,12 @@ from torch.nn.utils.rnn import pad_sequence
 
 from langchain_community.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
-os.environ["OPENAI_API_KEY"] = "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" 
+api= os.environ["OPENAI_API_KEY"] 
 
 
 # LLMs: Get predictions from ChatGPT
 def chatgpt_refinement(corrupted_text):
-    llm = ChatOpenAI(temperature=0.2, model_name="gpt-4", max_tokens=256)
+    llm = ChatOpenAI(temperature=0.2, model_name="gpt-4", max_tokens=256, openai_api_key=api)
 
     messages = [
         SystemMessage(content="As a text reconstructor, your task is to restore corrupted sentences to their original form while making minimum changes. You should adjust the spaces and punctuation marks as necessary. Do not introduce any additional information. If you are unable to reconstruct the text, respond with [False]."),
