@@ -26,7 +26,7 @@ load_dotenv()
 
 # Now you can access your API key securely
 api_key = os.getenv("OPENAI_API_KEY")
-
+print("api key: ",api_key)
 # LLMs: Get predictions from ChatGPT
 def chatgpt_refinement(corrupted_text):
     llm = ChatOpenAI(temperature=0.2, model_name="gpt-4", max_tokens=256, openai_api_key=api_key)
