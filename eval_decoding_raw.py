@@ -16,18 +16,13 @@ from rouge import Rouge
 from config import get_config
 
 from torch.nn.utils.rnn import pad_sequence
-
 from langchain_community.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 
-# Set the OpenAI API key
-os.environ["OPENAI_API_KEY"] = "your_actual_api_key_here"  # Replace with your OpenAI API key
+# Set the OpenAI API key for accessing GPT-4
+os.environ["OPENAI_API_KEY"] = ""  # Add your GPT-4 API key here
 
-# Check if the API key is set
-if not os.environ.get("OPENAI_API_KEY"):
-    raise ValueError("OPENAI_API_KEY is not set. Please set it before running the code.")
-
-# LLMs: Get predictions from ChatGPT
+# Function to get predictions from GPT-4
 def chatgpt_refinement(corrupted_text):
     llm = ChatOpenAI(temperature=0.2, model_name="gpt-4", max_tokens=256)
 
@@ -38,22 +33,23 @@ def chatgpt_refinement(corrupted_text):
 
     output = llm(messages).content
     output = output.replace('[', '').replace(']', '')
-    
+
+    # Handle cases where the reconstruction fails
     if len(output) < 10 and 'False' in output:
         return corrupted_text
-    
+
     return output
 
 def eval_model(dataloaders, device, tokenizer, criterion, model, output_all_results_path='/kaggle/working/results_raw/temp.txt'):
-    gpt = True
+    # Set up for evaluation
+    gpt = True  # Set to True to enable GPT-4 refinement
 
-    print("Saving to: ", output_all_results_path)
-    model.eval()   # Set model to evaluate mode
+    print("Saving to:", output_all_results_path)
+    model.eval()  # Set model to evaluation mode
     running_loss = 0.0
 
-    # Iterate over data.
     sample_count = 0
-    
+
     target_tokens_list = []
     target_string_list = []
     pred_tokens_list = []
@@ -63,7 +59,6 @@ def eval_model(dataloaders, device, tokenizer, criterion, model, output_all_resu
 
     with open(output_all_results_path, 'w') as f:
         for _, seq_len, input_masks, input_mask_invert, target_ids, target_mask, sentiment_labels, sent_level_EEG, input_raw_embeddings, input_raw_embeddings_lengths, word_contents, word_contents_attn, subject_batch in dataloaders['test']:
-
             # Load in batch
             input_embeddings_batch = input_raw_embeddings.to(device).float()
             input_embeddings_lengths_batch = torch.stack([torch.tensor(a.clone().detach()) for a in input_raw_embeddings_lengths], 0).to(device)
@@ -72,9 +67,9 @@ def eval_model(dataloaders, device, tokenizer, criterion, model, output_all_resu
             target_ids_batch = torch.stack(target_ids, 0).to(device)
             word_contents_batch = torch.stack(word_contents, 0).to(device)
             word_contents_attn_batch = torch.stack(word_contents_attn, 0).to(device)
-            
+
             subject_batch = np.array(subject_batch)
-                        
+
             target_tokens = tokenizer.convert_ids_to_tokens(target_ids_batch[0].tolist(), skip_special_tokens=True)
             target_string = tokenizer.decode(target_ids_batch[0], skip_special_tokens=True)
 
@@ -82,14 +77,13 @@ def eval_model(dataloaders, device, tokenizer, criterion, model, output_all_resu
             target_tokens_string = "[" + " ".join(map(str, target_tokens)) + "]"
             f.write(f'target tokens: {target_tokens_string}\n')
 
-            # Add to list for later calculate BLEU metric
             target_tokens_list.append([target_tokens])
             target_string_list.append(target_string)
-            
-            # Replace padding ids in target_ids with -100
-            target_ids_batch[target_ids_batch == tokenizer.pad_token_id] = -100 
 
-            # Forward
+            # Replace padding ids in target_ids with -100
+            target_ids_batch[target_ids_batch == tokenizer.pad_token_id] = -100
+
+            # Forward pass
             seq2seqLMoutput = model(
                 input_embeddings_batch, input_masks_batch, input_mask_invert_batch, target_ids_batch, input_embeddings_lengths_batch, word_contents_batch, word_contents_attn_batch, False, subject_batch, device)
 
@@ -102,16 +96,17 @@ def eval_model(dataloaders, device, tokenizer, criterion, model, output_all_resu
             values, predictions = probs.topk(1)
             predictions = torch.squeeze(predictions)
             predicted_string = tokenizer.decode(predictions).split('</s></s>')[0].replace('<s>', '')
+
             f.write(f'predicted string: {predicted_string}\n')
-            
-            # Convert to int list
+
             predictions = predictions.tolist()
             truncated_prediction = [t for t in predictions if t != tokenizer.eos_token_id]
+
             pred_tokens = tokenizer.convert_ids_to_tokens(truncated_prediction, skip_special_tokens=True)
             pred_tokens_list.append(pred_tokens)
             pred_string_list.append(predicted_string)
 
-            # ChatGPT refinement and tokenizer decode
+            # ChatGPT refinement if enabled
             if gpt:
                 predicted_string_chatgpt = chatgpt_refinement(predicted_string).replace('\n', '')
                 f.write(f'refined string: {predicted_string_chatgpt}\n')
@@ -135,13 +130,15 @@ def eval_model(dataloaders, device, tokenizer, criterion, model, output_all_resu
     for weight in weights_list:
         corpus_bleu_score = corpus_bleu(target_tokens_list, pred_tokens_list, weights=weight)
         print(f'corpus BLEU-{len(list(weight))} score:', corpus_bleu_score)
+
     print()
     # Calculate ROUGE score
     rouge = Rouge()
     rouge_scores = rouge.get_scores(pred_string_list, target_string_list, avg=True)
     print(rouge_scores)
+
     print()
-    # Calculate BERTScore
+    # Calculate BERT score
     from bert_score import score
     P, R, F1 = score(pred_string_list, target_string_list, lang='en', device="cuda:0", model_type="bert-large-uncased")
     print(f"bert_score P: {np.mean(np.array(P))}")
@@ -151,17 +148,19 @@ def eval_model(dataloaders, device, tokenizer, criterion, model, output_all_resu
 
     if gpt:
         print()
-        print("Refined outputs with GPT4")
-        # Calculate corpus BLEU score
+        print("Refined outputs with GPT-4")
+        # Calculate corpus BLEU score for refined outputs
         for weight in weights_list:
             corpus_bleu_score = corpus_bleu(target_tokens_list, refine_tokens_list, weights=weight)
             print(f'corpus BLEU-{len(list(weight))} score:', corpus_bleu_score)
+
         print()
-        # Calculate ROUGE score
+        # Calculate ROUGE score for refined outputs
         rouge_scores = rouge.get_scores(refine_string_list, target_string_list, avg=True)
         print(rouge_scores)
+
         print()
-        # Calculate BERTScore
+        # Calculate BERT score for refined outputs
         P, R, F1 = score(refine_string_list, target_string_list, lang='en', device="cuda:0", model_type="bert-large-uncased")
         print(f"bert_score P: {np.mean(np.array(P))}")
         print(f"bert_score R: {np.mean(np.array(R))}")
