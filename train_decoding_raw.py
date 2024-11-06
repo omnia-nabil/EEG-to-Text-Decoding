@@ -322,17 +322,13 @@ if __name__ == '__main__':
         dataset_path_task1 = '/kaggle/input/dataset/ZuCo/task1-SR/pickle/task1-SR-dataset_wRaw.pickle'
         with open(dataset_path_task1, 'rb') as handle:
             whole_dataset_dicts.append(pickle.load(handle))
-    if 'task2' in task_name:
-        dataset_path_task2 = '/kaggle/input/dataset2/task2-NR-dataset_wRaw.pickle'
-        with open(dataset_path_task2, 'rb') as handle:
-            whole_dataset_dicts.append(pickle.load(handle))
-    if 'taskNRv2' in task_name:
-        dataset_path_taskNRv2 = '/kaggle/input/dataset3/task2-NR-2.0-dataset_wRaw.pickle'
-        with open(dataset_path_taskNRv2, 'rb') as handle:
-            whole_dataset_dicts.append(pickle.load(handle))
+
     print()
+    """save config"""
+
     with open(f'/kaggle/working/config/decoding_raw/{save_name}.json', 'w') as out_config:
         json.dump(args, out_config, indent=4)
+
     if model_name in ['BrainTranslator', 'BrainTranslatorNaive']:
         tokenizer = BartTokenizer.from_pretrained('facebook/bart-large')
 
@@ -401,8 +397,6 @@ if __name__ == '__main__':
     ''' training loop '''
 
     ######################################################
-    '''step one trainig'''
-    ######################################################
 
     # closely follow BART paper
     if model_name in ['BrainTranslator']:
@@ -416,7 +410,7 @@ if __name__ == '__main__':
 
     if skip_step_one:
         if load_step1_checkpoint:
-            stepone_checkpoint = '/kaggle/input/unzip-stepone/checkpoints/decoding_raw/best/task1_task2_taskNRv2_finetune_BrainTranslator_2steptraining_b20_2_2_5e-05_5e-05_unique_sent.pt'
+            stepone_checkpoint = 'path_to_step_1_checkpoint.pt'
             print(f'skip step one, load checkpoint: {stepone_checkpoint}')
             model.load_state_dict(torch.load(stepone_checkpoint))
         else:
@@ -466,6 +460,9 @@ if __name__ == '__main__':
 
 
     else:
+        '''step one trainig'''
+    ######################################################
+
         model.to(device)
 
         ''' set up optimizer and scheduler'''
