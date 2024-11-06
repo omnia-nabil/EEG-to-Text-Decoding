@@ -354,5 +354,3 @@ dependencies:
       - yacs==0.1.8
       - yarl==1.8.2
 prefix: /home/hamza/miniconda3/envs/EEGToTextOpenVoc
-env:
-  api_key: ${{secrets.OPENAI_API_KEY}}
