@@ -270,6 +270,7 @@ if __name__ == '__main__':
 
     skip_step_one = args['skip_step_one']
     load_step1_checkpoint = args['load_step1_checkpoint']
+    upload_first_run_step1 = args['upload_first_run_step1']
     use_random_init = False
 
     if use_random_init and skip_step_one:
@@ -469,7 +470,10 @@ if __name__ == '__main__':
     else:
         '''step one trainig'''
     ######################################################
-
+        if upload_first_run_step1 :
+            stepone_checkpoint_not_first = ''
+            print(f'not first run for step 1, load checkpoint: {stepone_checkpoint_not_first}')
+            model.load_state_dict(torch.load(stepone_checkpoint_not_first))
         model.to(device)
 
         ''' set up optimizer and scheduler'''
