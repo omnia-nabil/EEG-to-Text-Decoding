@@ -5,7 +5,7 @@ python /kaggle/working/EEG-to-Text-Decoding/train_decoding_raw.py --model_name B
     --load_step1_checkpoint \
     --not_first_run \
     --num_epoch_step1 14 \
-    --num_epoch_step2 14 \
+    --num_epoch_step2 11 \
     -lr1 0.00005 \
     -lr2 0.00005 \
     -b 20\
